@@ -83,12 +83,6 @@ class PollAPI(Resource):
         poll_schema = PollSchema()
         output = poll_schema.dump(poll_t).data
         return {'poll': output}
-    def get(self, id):
-        data = request.json
-        poll_t = Poll.query.filter_by(id=id).first()
-        poll_schema = PollSchema()
-        output = poll_schema.dump(poll_t).data
-        return {'poll': output}
     def delete(self, id):
         poll_t = Poll.query.get(id)
         try:
