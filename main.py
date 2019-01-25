@@ -94,7 +94,7 @@ class PollAPI(Resource):
         try:
             db.session.delete(poll_t)
         except:
-            return {'error': 'No poll matching with the ID of ' + str(id)}, 400
+            return {'error': 'That poll does not exist'}, 400
         db.session.commit()
         return '', 200
 
@@ -104,7 +104,7 @@ class ChoiceAPI(Resource):
         if new_choice:
             db.session.delete(new_choice)
         else:
-            return {'error': 'No choice matching with the ID of ' + str(id)}, 400
+            return {'error': 'That choice does not exist'}, 400
         db.session.commit()
         return '', 200
 class ChoiceListAPI(Resource):
