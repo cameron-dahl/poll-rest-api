@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify, request
 from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
-import sys, json, time
+from sqlalchemy.dialects.postgresql import UUID
+import sys, json, time, uuid, os
 from flask_cors import CORS
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://cameron:dbpassword@localhost/pollapp"
+POLL_DB_URI = os.environ['POLL_DB_URI']
+app.config['SQLALCHEMY_DATABASE_URI'] = POLL_DB_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 api = Api(app)
 db = SQLAlchemy()
@@ -36,7 +38,7 @@ class Poll(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     question = db.Column(db.String(80))
     choices = db.relationship('Choice', secondary=choices, lazy='subquery', backref=db.backref('poll', lazy=True))
-
+    edit_key = db.Column(UUID(as_uuid=True), unique=True, nullable=False)
 class PollSchema(ma.ModelSchema):
     class Meta:
         model = Poll
