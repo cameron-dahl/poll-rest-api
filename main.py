@@ -14,15 +14,6 @@ from flask_marshmallow import Marshmallow
 ma = Marshmallow(app)
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-def get_or_create(session, model, **kwargs):
-    instance = db.session.query(model).filter_by(**kwargs).first()
-    if instance:
-        return instance
-    else:
-        instance = model(**kwargs)
-        db.session.add(instance)
-        db.session.commit()
-        return instance
 # models
 class Choice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -51,7 +42,6 @@ class ChoiceSchema(ma.ModelSchema):
 
 
 
-
 class PollListAPI(Resource):
     def get(self):
         polls = Poll.query.all()
@@ -70,12 +60,11 @@ class PollListAPI(Resource):
             db.session.commit()
             choices.append(created_choice)
         print(choices, file=sys.stdout)
-        Poll_t = Poll(question=data['question'], choices=choices)
+        Poll_t = Poll(question=data['question'], choices=choices, edit_key=uuid.uuid4())
         db.session.add(Poll_t)
         db.session.commit()
         poll_schema = PollSchema()
         output = poll_schema.dump(Poll_t).data
-        time.sleep(2)
         return {'poll': output}
 
 class PollAPI(Resource):
@@ -93,6 +82,13 @@ class PollAPI(Resource):
             return {'error': 'That poll does not exist'}, 400
         db.session.commit()
         return '', 200
+    def patch(self, id):
+        poll_t = Poll.query.filter_by(edit_key=id).first()
+        if not poll_t:
+            return {'error': 'That poll does not exist'}, 400
+        poll_schema = PollSchema()
+        output = poll_schema.dump(poll_t).data
+        return {'poll': output}
 
 class ChoiceAPI(Resource):
     def delete(self, id):
@@ -113,7 +109,7 @@ class ChoiceListAPI(Resource):
 api.add_resource(PollListAPI, '/api/polls/')
 api.add_resource(ChoiceListAPI, '/api/choices/')
 api.add_resource(ChoiceAPI, '/api/choices/<id>/')
-api.add_resource(PollAPI, '/api/polls/<int:id>/')
+api.add_resource(PollAPI, '/api/polls/<id>/')
 db.init_app(app)
 db.create_all(app=app)
 
