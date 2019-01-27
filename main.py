@@ -5,22 +5,20 @@ from sqlalchemy.dialects.postgresql import UUID
 import sys, json, uuid, os
 from flask_cors import CORS
 from sqlalchemy_utils import IPAddressType
+from flask_marshmallow import Marshmallow
 app = Flask(__name__)
 POLL_DB_URI = os.environ['POLL_DB_URI']
 app.config['SQLALCHEMY_DATABASE_URI'] = POLL_DB_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 api = Api(app)
 db = SQLAlchemy()
-from flask_marshmallow import Marshmallow
 ma = Marshmallow(app)
 cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-# models
 class Choice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.String())
     votes = db.relationship('Vote', backref='choice', lazy=True)
-
 
 choices = db.Table('choices',
     db.Column('choice_id', db.Integer, db.ForeignKey('choice.id'), primary_key=True),
@@ -34,17 +32,19 @@ class Poll(db.Model):
     edit_key = db.Column(UUID(as_uuid=True), unique=True, nullable=False)
     ip_vote_verification = db.Column(db.Boolean, default=True)
 
-
 class Vote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ip_address = db.Column(IPAddressType)
-    choice_id = db.Column(db.String(), db.ForeignKey('choice.id'), nullable=False)
-
-   
+    choice_id = db.Column(db.Integer, db.ForeignKey('choice.id'), nullable=False)
 
 class PollSchema(ma.ModelSchema):
     class Meta:
         model = Poll
+        strict = True
+
+class VoteSchema(ma.ModelSchema):
+    class Meta:
+        model = Vote
         strict = True
 
 class ChoiceSchema(ma.ModelSchema):
@@ -100,6 +100,21 @@ class PollAPI(Resource):
         output = poll_schema.dump(poll_t).data
         return {'poll': output}
 
+class VoteListAPI(Resource):
+    def get(self):
+        votes = Vote.query.all()
+        vote_schema = VoteSchema(many=True)
+        output = vote_schema.dump(votes).data
+        return {'votes': output}
+    def put(self):
+        data = request.json
+        NewVote = Vote(ip_address=data['ip_address'], choice_id=data['choice_id'])
+        db.session.add(NewVote)
+        db.session.commit()
+        poll_schema = VoteSchema()
+        output = poll_schema.dump(NewVote).data
+        return {'vote': output}
+
 class ChoiceAPI(Resource):
     def delete(self, id):
         new_choice = Choice.query.get(id)
@@ -109,6 +124,7 @@ class ChoiceAPI(Resource):
             return {'error': 'That choice does not exist'}, 400
         db.session.commit()
         return '', 200
+
 class ChoiceListAPI(Resource):
     def get(self):
         choices = Choice.query.all()
@@ -120,6 +136,7 @@ api.add_resource(PollListAPI, '/api/polls/')
 api.add_resource(ChoiceListAPI, '/api/choices/')
 api.add_resource(ChoiceAPI, '/api/choices/<id>/')
 api.add_resource(PollAPI, '/api/polls/<id>/')
+api.add_resource(VoteListAPI, '/api/votes/')
 db.init_app(app)
 db.create_all(app=app)
 
