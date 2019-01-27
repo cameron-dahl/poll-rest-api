@@ -2,10 +2,10 @@ from flask import Flask, request, jsonify, request
 from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import UUID
-import sys, json, uuid, os
 from flask_cors import CORS
 from sqlalchemy_utils import IPAddressType
 from flask_marshmallow import Marshmallow
+import sys, json, uuid, os
 app = Flask(__name__)
 POLL_DB_URI = os.environ['POLL_DB_URI']
 app.config['SQLALCHEMY_DATABASE_URI'] = POLL_DB_URI
@@ -19,6 +19,7 @@ class Choice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.String())
     votes = db.relationship('Vote', backref='choice', lazy=True)
+    #poll_id = db.Column(db.Integer, db.ForeignKey('poll.id'), nullable=False)
 
 choices = db.Table('choices',
     db.Column('choice_id', db.Integer, db.ForeignKey('choice.id'), primary_key=True),
@@ -115,7 +116,25 @@ class VoteListAPI(Resource):
         output = poll_schema.dump(NewVote).data
         return {'vote': output}
 
+class VerifyVoteAPI(Resource):
+    def post(self):
+        poll_id = request.json['poll_id']
+        poll = Poll.query.get(request.json['poll_id'])
+        if not poll:
+            return {'error': 'That poll does not exist'}, 404
+        if poll.ip_vote_verification:
+            #t = db.session.query(Vote, Choice, Poll).join(Choice).join(Poll).filter(Vote.ip_address==request.json['ip_address']).filter(Poll.id==poll_id).all()
+            pass
+        return {'message': 'This is not done yet.'}
+        
+
 class ChoiceAPI(Resource):
+    def get(self, id):
+        data = request.json
+        TheChoice = Choice.query.filter_by(id=id).first()
+        choice_schema = ChoiceSchema()
+        output = choice_schema.dump(TheChoice).data
+        return {'choice': output}
     def delete(self, id):
         new_choice = Choice.query.get(id)
         if new_choice:
@@ -137,6 +156,7 @@ api.add_resource(ChoiceListAPI, '/api/choices/')
 api.add_resource(ChoiceAPI, '/api/choices/<id>/')
 api.add_resource(PollAPI, '/api/polls/<id>/')
 api.add_resource(VoteListAPI, '/api/votes/')
+api.add_resource(VerifyVoteAPI, '/api/votes/verify/')
 db.init_app(app)
 db.create_all(app=app)
 
