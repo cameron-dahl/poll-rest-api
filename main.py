@@ -2,8 +2,9 @@ from flask import Flask, request, jsonify, request
 from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import UUID
-import sys, json, time, uuid, os
+import sys, json, uuid, os
 from flask_cors import CORS
+from sqlalchemy_utils import IPAddressType
 app = Flask(__name__)
 POLL_DB_URI = os.environ['POLL_DB_URI']
 app.config['SQLALCHEMY_DATABASE_URI'] = POLL_DB_URI
@@ -18,6 +19,7 @@ cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 class Choice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.String())
+    votes = db.relationship('Vote', backref='choice', lazy=True)
 
 
 choices = db.Table('choices',
@@ -28,8 +30,18 @@ choices = db.Table('choices',
 class Poll(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     question = db.Column(db.String(80))
-    choices = db.relationship('Choice', secondary=choices, lazy='subquery', backref=db.backref('poll', lazy=True))
+    choices = db.relationship('Choice', secondary=choices, lazy='subquery', backref=db.backref('poll', lazy=True, cascade="all"))
     edit_key = db.Column(UUID(as_uuid=True), unique=True, nullable=False)
+    ip_vote_verification = db.Column(db.Boolean, default=True)
+
+
+class Vote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(IPAddressType)
+    choice_id = db.Column(db.String(), db.ForeignKey('choice.id'), nullable=False)
+
+   
+
 class PollSchema(ma.ModelSchema):
     class Meta:
         model = Poll
@@ -39,8 +51,6 @@ class ChoiceSchema(ma.ModelSchema):
     class Meta:
         model = Choice
         strict = True
-
-
 
 class PollListAPI(Resource):
     def get(self):
