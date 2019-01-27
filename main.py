@@ -117,12 +117,11 @@ class VoteListAPI(Resource):
 
 class VerifyVoteAPI(Resource):
     def post(self):
-        poll_id = request.json['poll_id']
         poll = Poll.query.get(request.json['poll_id'])
         if not poll:
             return {'error': 'That poll does not exist'}, 404
         if poll.ip_vote_verification:
-            #t = db.session.query(Vote, Choice, Poll).join(Choice).join(Poll).filter(Vote.ip_address==request.json['ip_address']).filter(Poll.id==poll_id).all()
+            #t = db.session.query(Vote, Choice, Poll).join(Choice).join(Poll).filter(Vote.ip_address==request.json['ip_address']).filter(Poll.id==poll.id).all()
             pass
         return {'message': 'This is not done yet.'}
         
