@@ -19,7 +19,6 @@ class Choice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.String())
     votes = db.relationship('Vote', backref='choice', lazy=True)
-    #poll_id = db.Column(db.Integer, db.ForeignKey('poll.id'), nullable=False)
 
 choices = db.Table('choices',
     db.Column('choice_id', db.Integer, db.ForeignKey('choice.id'), primary_key=True),
