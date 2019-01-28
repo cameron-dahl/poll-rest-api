@@ -1,0 +1,1 @@
+$env:POLL_DB_URI = "postgresql://localdev:dev@localhost:5432"; py main.py
