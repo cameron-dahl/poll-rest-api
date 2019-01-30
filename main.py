@@ -110,6 +110,7 @@ class VoteListAPI(Resource):
         # TODO this should be changed to be an append on choice's model object instead of being a direct obj creation
         # TODO ip_address can't come from a POST param, otherwise it could be easily faked by a malicious user
         # need to pull the IP address from the request directly
+        # ---> request.remote_addr should be the parameter we need here
         NewVote = Vote(ip_address=data['ip_address'], choice_id=data['choice_id'])
         db.session.add(NewVote)
         db.session.commit()
@@ -158,7 +159,6 @@ class DummyDataAPI(Resource):
         db.session.query(Choice).delete()
         db.session.query(Poll).delete()
 
-        # TODO: Explain to Cameron how appending to relationships work
         poll = Poll(question='Cats or Dogs?', edit_key=uuid.uuid4(), ip_vote_verification=True)
         cats = Choice(text='Cats')
         dogs = Choice(text='Dogs')
