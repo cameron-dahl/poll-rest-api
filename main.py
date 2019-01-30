@@ -13,29 +13,27 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 api = Api(app)
 db = SQLAlchemy()
 ma = Marshmallow(app)
-cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
+cors = CORS(app, resources={r'/api/*': {'origins': '*'}})
 
 class Choice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     text = db.Column(db.String())
-    votes = db.relationship('Vote', backref='choice', lazy=True)
-
-choices = db.Table('choices',
-    db.Column('choice_id', db.Integer, db.ForeignKey('choice.id'), primary_key=True),
-    db.Column('poll_id', db.Integer, db.ForeignKey('poll.id'), primary_key=True)
-)
+    poll_id = db.Column(db.Integer, db.ForeignKey('poll.id'))
+    poll = db.relationship('Poll', back_populates='choices')
+    votes = db.relationship('Vote', back_populates='choice')
 
 class Poll(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     question = db.Column(db.String(80))
-    choices = db.relationship('Choice', secondary=choices, lazy='subquery', backref=db.backref('poll', lazy=True, cascade="all"))
     edit_key = db.Column(UUID(as_uuid=True), unique=True, nullable=False)
     ip_vote_verification = db.Column(db.Boolean, default=True)
+    choices = db.relationship('Choice', back_populates='poll')
 
 class Vote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ip_address = db.Column(IPAddressType)
-    choice_id = db.Column(db.Integer, db.ForeignKey('choice.id'), nullable=False)
+    choice_id = db.Column(db.Integer, db.ForeignKey('choice.id'))
+    choice = db.relationship('Choice', back_populates='votes')
 
 class PollSchema(ma.ModelSchema):
     class Meta:
@@ -63,6 +61,7 @@ class PollListAPI(Resource):
     def put(self):
         data = request.json
         print(data['choices'], file=sys.stdout)
+        # TODO: Change this choices creation to be more model-based than SQL-y
         choices = []
         for choice in data['choices']:
             created_choice = Choice(text=choice)
@@ -108,6 +107,10 @@ class VoteListAPI(Resource):
         return {'votes': output}
     def put(self):
         data = request.json
+        # TODO this should be changed to be an append on choice's model object instead of being a direct obj creation
+        # TODO ip_address can't come from a POST param, otherwise it could be easily faked by a malicious user
+        # need to pull the IP address from the request directly
+        # ---> request.remote_addr should be the parameter we need here
         NewVote = Vote(ip_address=data['ip_address'], choice_id=data['choice_id'])
         db.session.add(NewVote)
         db.session.commit()
@@ -121,8 +124,9 @@ class VerifyVoteAPI(Resource):
         if not poll:
             return {'error': 'That poll does not exist'}, 404
         if poll.ip_vote_verification:
-            #t = db.session.query(Vote, Choice, Poll).join(Choice).join(Poll).filter(Vote.ip_address==request.json['ip_address']).filter(Poll.id==poll.id).all()
-            pass
+            personHasVoted = db.session.query(Vote, Choice, Poll).filter(Poll.id==poll.id).filter(Vote.ip_address==request.json['ip_address']).first() is not None
+            if personHasVoted:
+                return {'error': 'You have already voted on this poll.'}, 403
         return {'message': 'This is not done yet.'}
         
 
@@ -149,14 +153,34 @@ class ChoiceListAPI(Resource):
         output = choice_schema.dump(choices).data
         return {'choices': output}
 
+class DummyDataAPI(Resource):
+    def get(self):
+        db.session.query(Vote).delete()
+        db.session.query(Choice).delete()
+        db.session.query(Poll).delete()
+
+        poll = Poll(question='Cats or Dogs?', edit_key=uuid.uuid4(), ip_vote_verification=True)
+        cats = Choice(text='Cats')
+        dogs = Choice(text='Dogs')
+        poll.choices.append(cats)
+        poll.choices.append(dogs)
+        cats.votes.append(Vote(ip_address='127.0.0.1'))
+        cats.votes.append(Vote(ip_address='192.168.86.1'))
+        dogs.votes.append(Vote(ip_address='127.0.0.1'))
+        dogs.votes.append(Vote(ip_address='192.168.86.1'))
+        db.session.add(poll)
+
+        db.session.commit()
+
 api.add_resource(PollListAPI, '/api/polls/')
 api.add_resource(ChoiceListAPI, '/api/choices/')
 api.add_resource(ChoiceAPI, '/api/choices/<id>/')
 api.add_resource(PollAPI, '/api/polls/<id>/')
 api.add_resource(VoteListAPI, '/api/votes/')
 api.add_resource(VerifyVoteAPI, '/api/votes/verify/')
+api.add_resource(DummyDataAPI, '/api/dummydata/')
 db.init_app(app)
 db.create_all(app=app)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
