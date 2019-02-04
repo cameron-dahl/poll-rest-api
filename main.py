@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, request, Blueprint
-from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_marshmallow import Marshmallow
