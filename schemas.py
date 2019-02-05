@@ -1,5 +1,7 @@
 import models
 from main import ma
+
+
 class PollSchema(ma.ModelSchema):
     class Meta:
         model = models.Poll

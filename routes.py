@@ -1,6 +1,6 @@
+from main import db
 from flask import Blueprint, request
 from schemas import *
-from models import *
 import uuid, json
 # Choices
 choices_api = Blueprint('choices_api', __name__)

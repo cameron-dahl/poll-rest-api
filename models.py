@@ -21,6 +21,7 @@ class Poll(db.Model):
     question = db.Column(db.String(80))
     edit_key = db.Column(UUID(as_uuid=True), unique=True, nullable=False)
     ip_vote_verification = db.Column(db.Boolean, default=True)
+    google_recaptcha = db.Column(db.Boolean, default=True)
     choices = db.relationship('Choice', back_populates='poll')
 
     def verify_vote(self, ip_address):

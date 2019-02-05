@@ -5,7 +5,7 @@ from flask_marshmallow import Marshmallow
 import sys, json, uuid, os
 from schemas import *
 from models import *
-from resources import polls, votes, choices
+from routes import *
 # Initalize app
 app = Flask(__name__)
 # Database 
@@ -14,9 +14,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = POLL_DB_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 api_bp = Blueprint('api', __name__)
 app.register_blueprint(api_bp)
-app.register_blueprint(polls.polls_api, url_prefix='/api/polls')
-app.register_blueprint(votes.votes_api, url_prefix='/api/votes')
-app.register_blueprint(choices.choices_api, url_prefix='/api/choices')
+app.register_blueprint(polls_api, url_prefix='/api/polls')
+app.register_blueprint(votes_api, url_prefix='/api/votes')
+app.register_blueprint(choices_api, url_prefix='/api/choices')
+app.register_blueprint(dummy_data, url_prefix="/dummy_data")
 # Initalize SQLAlchemy, Marshmallow, and CORS
 db = SQLAlchemy()
 ma = Marshmallow(app)
