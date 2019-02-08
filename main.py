@@ -9,8 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 # Database 
 app = Flask(__name__)
 db = SQLAlchemy()
-#POLL_DB_URI = os.environ['POLL_DB_URI']
-POLL_DB_URI = os.environ.get('POLL_DB_URI', 'postgresql://cameron:dbpassword@localhost/pollapp')
+POLL_DB_URI = os.environ['POLL_DB_URI']
 app.config['SQLALCHEMY_DATABASE_URI'] = POLL_DB_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 ma = Marshmallow(app)
