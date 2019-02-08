@@ -1,0 +1,2 @@
+# poll-rest-api
+This is a project that allows users to create polls and edit them with a edit code they recieved when they created it. It was created with Flask and some other helpful libraries like Marshmellow and Flask-SQLAlchemy.
