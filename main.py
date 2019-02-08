@@ -45,8 +45,6 @@ class Poll(db.Model):
            personHasVoted = db.session.query(Vote, Choice, Poll).filter(Poll.id==self.id).filter(Vote.ip_address==ip_address).first() is not None
            if personHasVoted:
                return True
-           else:
-               return False 
         return False
 
 class PollSchema(ma.ModelSchema):
