@@ -45,8 +45,8 @@ class Poll(db.Model):
         if self.ip_vote_verification:
            personHasVoted = db.session.query(Vote, Choice, Poll).filter(Poll.id==self.id).filter(Vote.ip_address==ip_address).first() is not None
            if personHasVoted:
-               return {'error': 'You have already voted on this poll.'}, 403
-        return {'message': 'IP Vote verification is not enabled for this poll.'}
+               return True
+        return False
 
 
 class PollSchema(ma.ModelSchema):
@@ -159,6 +159,10 @@ def votes():
     elif request.method == "PUT":
         data = request.json
         choice = Choice.query.get(data['choice_id'])
+        poll = Poll.query.get(choice.poll_id)
+        verification = poll.verify_vote(request.remote_addr)
+        if verification == True:
+            return jsonify(error="You have already voted!")
         NewVote = Vote(ip_address=request.remote_addr)
         choice.votes.append(NewVote)
         db.session.add(choice)
