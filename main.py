@@ -6,16 +6,14 @@ import sys, json, uuid, os
 from sqlalchemy_utils import IPAddressType
 from sqlalchemy.dialects.postgresql import UUID
 from flask_sqlalchemy import SQLAlchemy
-# Database 
+# Initalize Flask, SQLAlchemy, Marshmallow, and CORS
 app = Flask(__name__)
 db = SQLAlchemy()
 POLL_DB_URI = os.environ['POLL_DB_URI']
 app.config['SQLALCHEMY_DATABASE_URI'] = POLL_DB_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 ma = Marshmallow(app)
-# Initalize SQLAlchemy, Marshmallow, and CORS
 cors = CORS(app, resources={r'/api/*': {'origins': '*'}})
-
 
 class Choice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -40,14 +38,16 @@ class Poll(db.Model):
 
     def verify_vote(self, ip_address):
         '''
-        This is a method for the verification of votes if the inital poll has the verification enabled. It takes a poll ID argument and an IP address. 
+        This is a method for the verification of votes if the poll has the verification enabled. 
+        It takes an IP address argument (usually from the remote request) so that it can query the database and check if there's any matches. 
         '''
         if self.ip_vote_verification:
            personHasVoted = db.session.query(Vote, Choice, Poll).filter(Poll.id==self.id).filter(Vote.ip_address==ip_address).first() is not None
            if personHasVoted:
                return True
+           else:
+               return False 
         return False
-
 
 class PollSchema(ma.ModelSchema):
     class Meta:
@@ -63,6 +63,7 @@ class ChoiceSchema(ma.ModelSchema):
     class Meta:
         model = Choice
         strict = True
+
 @app.route('/api/choices/<id>/', methods=['GET', 'DELETE', 'OPTIONS'])
 def choice(id):
     if request.method == "GET":
@@ -80,14 +81,12 @@ def choice(id):
         db.session.commit()
         return '', 200
 
-
 @app.route('/api/choices/', methods=['GET'])
 def get_all_choices():
     choices = Choice.query.all()
     choice_schema = ChoiceSchema(many=True)
     output = choice_schema.dump(choices).data
     return jsonify(choices=output)
-
 
 @app.route('/api/polls/', methods=['PUT', 'OPTIONS', 'GET'])
 def polls():
@@ -145,10 +144,7 @@ def poll(id):
     elif request.method == "OPTIONS":
         return '', 200
     
-
-
 # Votes
-
 @app.route('/api/votes/', methods=['GET', 'PUT'])
 def votes():
     if request.method == "GET":
@@ -161,8 +157,8 @@ def votes():
         choice = Choice.query.get(data['choice_id'])
         poll = Poll.query.get(choice.poll_id)
         verification = poll.verify_vote(request.remote_addr)
-        if verification == True:
-            return jsonify(error="You have already voted!")
+        if verification:
+            return jsonify(error="You have already voted!"), 403
         NewVote = Vote(ip_address=request.remote_addr)
         choice.votes.append(NewVote)
         db.session.add(choice)
@@ -178,6 +174,7 @@ def get_votes(id):
         vote_schema = VoteSchema(many=True)
         output = vote_schema.dump(votes).data
         return jsonify(votes=output)
+
 @app.route('/api/poll/<id>/choices/', methods=['GET'])
 def get_choices(id):
     if request.method == "GET":
@@ -185,6 +182,7 @@ def get_choices(id):
         choices_schema = ChoiceSchema(many=True)
         output = choices_schema.dump(choices).data
         return jsonify(choices=output)
+
 @app.route('/api/votes/verify', methods=['GET'])
 def verify_vote():
     poll_t = Poll.query.filter_by(id=request.json['poll_id']).first()
