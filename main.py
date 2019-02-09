@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, request, Blueprint
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_marshmallow import Marshmallow
-import sys, json, uuid, os
+import sys, json, uuid, os, datetime
 from sqlalchemy_utils import IPAddressType
 from sqlalchemy.dialects.postgresql import UUID
 from flask_sqlalchemy import SQLAlchemy
@@ -27,7 +27,7 @@ class Vote(db.Model):
     ip_address = db.Column(IPAddressType)
     choice_id = db.Column(db.Integer, db.ForeignKey('choice.id'))
     choice = db.relationship('Choice', back_populates='votes')
-
+    created_at = db.Column(db.DateTime, default=datetime.datetime.now())
 class Poll(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     question = db.Column(db.String(80))
@@ -35,13 +35,15 @@ class Poll(db.Model):
     ip_vote_verification = db.Column(db.Boolean, default=True)
     google_recaptcha = db.Column(db.Boolean, default=True)
     choices = db.relationship('Choice', back_populates='poll')
+    created_at = db.Column(db.DateTime, default=datetime.datetime.now())
+    updated_at = db.Column(db.DateTime, onupdate=datetime.datetime.now())
 
     def verify_vote(self, ip_address):
         '''
-        This is a method for the verification of votes if the poll has the verification enabled. 
+        This is a method for the verification of votes if the poll has the verification method enabled. 
         It takes an IP address argument (usually from the remote request) so that it can query the database and check if there's any matches. 
         '''
-        if self.ip_vote_verification:
+        if self.ip_vote_verification: # add 127.0.0.1 to a whitelist for dev purposes
            personHasVoted = db.session.query(Vote, Choice, Poll).filter(Poll.id==self.id).filter(Vote.ip_address==ip_address).first() is not None
            if personHasVoted:
                return True
@@ -61,7 +63,9 @@ class ChoiceSchema(ma.ModelSchema):
     class Meta:
         model = Choice
         strict = True
-
+class PublicPollSchema(ma.ModelSchema):
+    class Meta:
+        fields = ('id', 'question', 'choices', 'ip_vote_verification', 'google_recaptcha')
 @app.route('/api/choices/<id>/', methods=['GET', 'DELETE', 'OPTIONS'])
 def choice(id):
     if request.method == "GET":
@@ -168,7 +172,7 @@ def votes():
 @app.route('/api/poll/<id>/votes/', methods=['GET'])
 def get_votes(id):
     if request.method == "GET":
-        votes = Vote.query.filter(Choice.poll_id==id)
+        votes = Vote.query.filter(Choice.poll_id==int(id))
         vote_schema = VoteSchema(many=True)
         output = vote_schema.dump(votes).data
         return jsonify(votes=output)
@@ -181,10 +185,14 @@ def get_choices(id):
         output = choices_schema.dump(choices).data
         return jsonify(choices=output)
 
-@app.route('/api/votes/verify', methods=['GET'])
+@app.route('/api/votes/verify/', methods=['POST', 'OPTIONS'])
 def verify_vote():
-    poll_t = Poll.query.filter_by(id=request.json['poll_id']).first()
-    poll_t.verify_vote(request.remote_addr)
+    if request.method == "POST":
+        poll_t = Poll.query.filter_by(id=int(request.json['poll_id'])).first()
+        verify = poll_t.verify_vote(request.remote_addr)
+        return jsonify(result=verify)
+    elif request.method == "OPTIONS":
+        return '', 200
 
 db.init_app(app)
 db.create_all(app=app)
