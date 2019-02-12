@@ -44,7 +44,7 @@ class Poll(db.Model):
         It takes an IP address argument (usually from the remote request) so that it can query the database and check if there's any matches. 
         '''
         if self.ip_vote_verification: # add 127.0.0.1 to a whitelist for dev purposes
-           personHasVoted = db.session.query(Vote, Choice, Poll).filter(Poll.id==self.id).filter(Vote.ip_address==ip_address).first() is not None
+           personHasVoted = db.session.query(Vote).join(Choice).join(Poll).filter(Poll.id==self.id).filter(Vote.ip_address==ip_address).first() is not None
            if personHasVoted:
                return True
         return False
